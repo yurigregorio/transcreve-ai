@@ -20,7 +20,7 @@ app.innerHTML = `
       </label>
       <div id="file-meta" class="file-meta" hidden></div>
       <div class="options"><label for="language">Idioma do vídeo</label><select id="language"><option value="portuguese">Português</option><option value="english">Inglês</option><option value="spanish">Espanhol</option><option value="french">Francês</option><option value="auto">Detetar automaticamente</option></select></div>
-      <div class="options"><label for="quality">Qualidade da transcrição</label><select id="quality"><option value="tiny">Mais rápida (recomendada para computadores simples)</option><option value="base">Mais qualidade (download e processamento maiores)</option></select></div>
+      <div class="options"><label for="quality">Qualidade da transcrição</label><select id="quality"><option value="tiny">Mais rápida (recomendada para computadores simples)</option><option value="base">Mais qualidade (download e processamento maiores)</option><option value="small">Máxima qualidade (bem mais lento e download maior)</option></select></div>
       <button id="start" class="primary" disabled><span>Transcrever vídeo</span><span aria-hidden="true">→</span></button>
       <div id="progress-wrap" class="progress-wrap" hidden><div class="progress-head"><span id="progress-label">A preparar o vídeo…</span><span class="progress-meta"><span id="progress-percent"></span><span>Decorrido</span><span id="progress-time" class="progress-time" aria-live="off">00:00</span></span></div><div class="track"><div id="progress-bar"></div></div><p id="progress-detail" class="progress-detail">Isso pode levar alguns minutos. Mantenha esta página aberta.</p></div>
       <div class="privacy-note"><span class="lock">▣</span><span>O vídeo é processado localmente. Não é enviado para a internet.<br><small>Na primeira utilização, será baixado um modelo de reconhecimento de voz.</small></span></div>
@@ -215,7 +215,9 @@ start.addEventListener('click', async () => {
       audioUrl = URL.createObjectURL(wav);
     }
     const modelSize = document.querySelector('#quality').value;
-    const modelDetail = modelSize === 'base' ? `${detail} O modelo de maior qualidade pode levar mais tempo e exige um download maior.` : detail;
+    const modelDetail = modelSize === 'small'
+      ? `${detail} O modelo de máxima qualidade é bem maior e pode demorar bastante, especialmente em computadores sem GPU compatível.`
+      : modelSize === 'base' ? `${detail} O modelo de maior qualidade pode levar mais tempo e exige um download maior.` : detail;
     const rec = await getRecognizer(modelDetail, modelSize);
     progress('A reconhecer a fala…', null, `${detail} O indicador animado mostra que o navegador continua trabalhando. Mantenha esta página aberta.`);
     const language = document.querySelector('#language').value;
