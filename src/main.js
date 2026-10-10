@@ -101,11 +101,35 @@ async function getFFmpeg() {
 }
 async function getRecognizer(estimate) {
   if (recognizer) return recognizer;
-  progress('A carregar o modelo de voz…', 45, `${estimate} O modelo de voz será baixado apenas na primeira utilização.`);
-  recognizer = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
-    dtype: { encoder_model: 'q8', decoder_model_merged: 'q8' },
-    progress_callback: (p) => { if (p.status === 'progress' && p.total) progress('A descarregar o modelo de voz…', 42 + (p.progress / 100) * 32, `${estimate} Este download acontece apenas na primeira utilização e pode ser reutilizado pelo navegador.`); }
-  });
+  const progressCallback = p => {
+    if (p.status === 'progress' && p.total) {
+      progress('A descarregar o modelo de voz…', 42 + (p.progress / 100) * 32, `${estimate} Este download pode ser reutilizado pelo navegador.`);
+    }
+  };
+  let canTryWebGPU = false;
+  try { canTryWebGPU = Boolean(navigator.gpu && await navigator.gpu.requestAdapter()); } catch { /* Use CPU when adapter detection is blocked. */ }
+  if (canTryWebGPU) {
+    progress('A preparar a aceleração gráfica…', 43, `${estimate} Vou tentar usar a GPU do computador; se não funcionar neste navegador, o processamento continua no modo compatível.`);
+    try {
+      recognizer = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
+        device: 'webgpu',
+        dtype: { encoder_model: 'q4', decoder_model_merged: 'q4' },
+        progress_callback: progressCallback
+      });
+      progress('Modelo pronto com aceleração gráfica…', 74, estimate);
+    } catch (error) {
+      console.warn('WebGPU indisponível para este dispositivo; usando o modo compatível.', error);
+      recognizer = null;
+      progress('A carregar o modelo compatível…', 45, `${estimate} A aceleração gráfica não funcionou neste aparelho. O modo compatível vai continuar o processamento.`);
+    }
+  }
+  if (!recognizer) {
+    if (!canTryWebGPU) progress('A carregar o modelo de voz…', 45, `${estimate} O modelo será baixado apenas na primeira utilização.`);
+    recognizer = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
+      dtype: { encoder_model: 'q8', decoder_model_merged: 'q8' },
+      progress_callback: progressCallback
+    });
+  }
   return recognizer;
 }
 function cleanText(result) { return Array.isArray(result.chunks) ? result.chunks.map(c => c.text.trim()).join(' ').replace(/\s+([,.!?;:])/g, '$1') : result.text; }
