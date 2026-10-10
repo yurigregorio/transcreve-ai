@@ -43,6 +43,28 @@ let recognizer;
 let busy = false;
 
 function formatSize(bytes) { return bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`; }
+function formatTime(seconds) {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+function readMediaDuration(file) {
+  return new Promise(resolve => {
+    const media = document.createElement(file.type.startsWith('video/') ? 'video' : 'audio');
+    const url = URL.createObjectURL(file);
+    const finish = duration => { URL.revokeObjectURL(url); resolve(Number.isFinite(duration) ? duration : null); };
+    media.preload = 'metadata';
+    media.onloadedmetadata = () => finish(media.duration);
+    media.onerror = () => finish(null);
+    media.src = url;
+  });
+}
+function estimateDetail(duration) {
+  if (!duration) return 'O tempo varia conforme a duração do arquivo e a velocidade do computador. Mantenha esta página aberta.';
+  return `Estimativa aproximada: de ${formatTime(duration)} a ${formatTime(duration * 3)}. Pode variar conforme o computador. Na primeira utilização, o download do modelo pode levar alguns minutos extras.`;
+}
 function chooseFile(file) {
   if (!file) return;
   if (!file.type.startsWith('video/') && !file.type.startsWith('audio/')) return showError('Escolha um arquivo de vídeo ou áudio.');
@@ -77,12 +99,12 @@ async function getFFmpeg() {
   await ffmpeg.load({ coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'), wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm') });
   return ffmpeg;
 }
-async function getRecognizer() {
+async function getRecognizer(estimate) {
   if (recognizer) return recognizer;
-  progress('A carregar o modelo de voz…', 45, 'Na primeira vez, o modelo precisa ser baixado. Isso pode levar alguns minutos.');
+  progress('A carregar o modelo de voz…', 45, `${estimate} O modelo de voz será baixado apenas na primeira utilização.`);
   recognizer = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
     dtype: { encoder_model: 'q8', decoder_model_merged: 'q8' },
-    progress_callback: (p) => { if (p.status === 'progress' && p.total) progress('A descarregar o modelo de voz…', 42 + (p.progress / 100) * 32, 'Esse download acontece apenas na primeira utilização e pode ser reutilizado pelo navegador.'); }
+    progress_callback: (p) => { if (p.status === 'progress' && p.total) progress('A descarregar o modelo de voz…', 42 + (p.progress / 100) * 32, `${estimate} Este download acontece apenas na primeira utilização e pode ser reutilizado pelo navegador.`); }
   });
   return recognizer;
 }
@@ -96,7 +118,10 @@ start.addEventListener('click', async () => {
   progressWrap.hidden = false;
   progressWrap.scrollIntoView({behavior:'smooth', block:'nearest'});
   try {
+    const duration = await readMediaDuration(selectedFile);
+    const detail = estimateDetail(duration);
     progress('A preparar o áudio…', 8);
+    document.querySelector('#progress-detail').textContent = detail;
     let audioUrl;
     if (selectedFile.type.startsWith('audio/')) {
       // Audio files can be passed directly to Transformers.js; FFmpeg is only
@@ -112,7 +137,7 @@ start.addEventListener('click', async () => {
       const wav = new Blob([data.buffer], {type:'audio/wav'});
       audioUrl = URL.createObjectURL(wav);
     }
-    const rec = await getRecognizer();
+    const rec = await getRecognizer(detail);
     const language = document.querySelector('#language').value;
     const output = await rec(audioUrl, {
       chunk_length_s: 30, stride_length_s: 5,
