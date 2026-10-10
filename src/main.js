@@ -10,7 +10,8 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <header class="topbar"><a class="brand" href="#" aria-label="Transcreve AI início"><span class="brand-mark">✳</span><span>transcreve<span class="brand-light">AI</span></span></a><span class="privacy"><i></i> Processamento no seu computador</span></header>
   <main>
-    <section class="intro"><div class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTA GRATUITA · SEM CADASTRO</div><h1>Do vídeo para o texto.<br><em>Sem complicação.</em></h1><p class="lead">Escolha um vídeo e deixe o Transcreve AI cuidar do resto.<br>O arquivo fica no seu computador.</p></section>
+    <section class="intro"><div class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTA GRATUITA · SEM CADASTRO</div><h1>Do vídeo para o texto. <em>Sem complicação.</em></h1><p class="lead">Transcreva os seus vídeos no computador, sem enviar o arquivo.</p></section>
+    <div class="columns">
     <section class="workspace" aria-label="Transcrever vídeo">
       <div class="step-label"><span class="step-number">1</span><span>Escolha seu vídeo</span><span class="step-note">MP4, MOV, WebM e outros</span></div>
       <label id="dropzone" class="dropzone" for="video-file" tabindex="0">
@@ -24,9 +25,13 @@ app.innerHTML = `
       <button id="start" class="primary" disabled><span>Transcrever vídeo</span><span aria-hidden="true">→</span></button>
       <div id="progress-wrap" class="progress-wrap" hidden><div class="progress-head"><span id="progress-label">A preparar o vídeo…</span><span class="progress-meta"><span id="progress-percent"></span><span>Decorrido</span><span id="progress-time" class="progress-time" aria-live="off">00:00</span></span></div><div class="track"><div id="progress-bar"></div></div><p id="progress-detail" class="progress-detail">Isso pode levar alguns minutos. Mantenha esta página aberta.</p></div>
       <div class="privacy-note"><span class="lock">▣</span><span>O vídeo é processado localmente. Não é enviado para a internet.<br><small>Na primeira utilização, será baixado um modelo de reconhecimento de voz.</small></span></div>
+      <section id="error" class="error" hidden></section>
     </section>
-    <section id="result" class="result" hidden><div class="result-heading"><div><div class="step-label result-label"><span class="step-number done">✓</span><span>Transcrição pronta</span></div><h2 id="result-name">O seu texto</h2></div><div class="result-actions"><button id="copy" class="secondary">Copiar texto</button><button id="download" class="secondary">Baixar .txt</button></div></div><textarea id="transcript" spellcheck="true" aria-label="Transcrição do vídeo"></textarea><p class="edit-hint">Você pode revisar e corrigir o texto antes de copiar ou baixar. Trechos entre colchetes indicam repetições detectadas; confira no áudio.</p></section>
-    <section id="error" class="error" hidden></section>
+    <section class="output-column" aria-label="Resultado da transcrição">
+      <div id="result-placeholder" class="result-placeholder"><span class="output-icon">✳</span><h2>A sua transcrição aparecerá aqui</h2><p>Escolha um arquivo, ajuste o idioma e clique em <strong>Transcrever vídeo</strong>. Enquanto o modelo processa a fala, o resultado ficará nesta área.</p><div class="placeholder-tip"><span>✦</span> Dica: selecione “Máxima qualidade” para aulas e vídeos com termos técnicos.</div></div>
+      <section id="result" class="result" hidden><div class="result-heading"><div><div class="step-label result-label"><span class="step-number done">✓</span><span>Transcrição pronta</span></div><h2 id="result-name">O seu texto</h2></div><div class="result-actions"><button id="copy" class="secondary">Copiar texto</button><button id="download" class="secondary">Baixar .txt</button></div></div><textarea id="transcript" spellcheck="true" aria-label="Transcrição do vídeo"></textarea><p class="edit-hint">Você pode revisar e corrigir o texto antes de copiar ou baixar. Trechos entre colchetes indicam repetições detectadas; confira no áudio.</p></section>
+    </section>
+    </div>
     <section class="how"><div class="how-title">É simples assim</div><div class="how-grid"><article><span>01</span><h3>Escolha</h3><p>Selecione um vídeo salvo no computador.</p></article><article><span>02</span><h3>Aguarde</h3><p>O navegador reconhece a fala sem enviar o arquivo.</p></article><article><span>03</span><h3>Use o texto</h3><p>Copie ou baixe a transcrição para estudar.</p></article></div></section>
     <footer>Feito para aprender, no seu ritmo. <span>Transcreve AI</span></footer>
   </main>`;
@@ -73,6 +78,7 @@ function chooseFile(file) {
   selectedFile = file;
   errorSection.hidden = true;
   resultSection.hidden = true;
+  document.querySelector('#result-placeholder').hidden = false;
   document.querySelector('#file-title').textContent = file.name;
   document.querySelector('#file-subtitle').textContent = 'Arquivo selecionado';
   fileMeta.textContent = `${file.type.startsWith('video/') ? 'Vídeo' : 'Áudio'} · ${formatSize(file.size)}`;
@@ -233,6 +239,7 @@ start.addEventListener('click', async () => {
     if (!text) throw new Error('Não foi encontrada fala clara neste arquivo. Tente outro vídeo ou confirme se ele tem áudio.');
     document.querySelector('#transcript').value = text;
     document.querySelector('#result-name').textContent = selectedFile.name;
+    document.querySelector('#result-placeholder').hidden = true;
     resultSection.hidden = false;
     progressWrap.hidden = true;
     resultSection.scrollIntoView({behavior:'smooth', block:'start'});
