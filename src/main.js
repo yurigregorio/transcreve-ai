@@ -8,7 +8,7 @@ env.useBrowserCache = true;
 
 const app = document.querySelector('#app');
 app.innerHTML = `
-  <header class="topbar"><a class="brand" href="#" aria-label="Transcreve AI início"><span class="brand-mark">✳</span><span>transcreve<span class="brand-light">AI</span></span></a><span class="privacy"><i></i> Processamento no seu computador</span></header>
+  <header class="topbar"><a class="brand" href="#" aria-label="Transcreve AI início"><img class="brand-logo" src="/logo-transcreve-ai.png" alt="Transcreve AI" /></a><span class="privacy"><i></i> Processamento no seu computador</span></header>
   <main>
     <section class="intro"><div class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTA GRATUITA · SEM CADASTRO</div><h1>Do vídeo para o texto. <em>Sem complicação.</em></h1><p class="lead">Transcreva os seus vídeos no computador, sem enviar o arquivo.</p></section>
     <div class="columns">

@@ -21,9 +21,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(ellipse at 50% -25%, #163328 0, #0a100e 60%); }
 .topbar { height: 68px; padding: 0 max(calc((100% - 1200px) / 2), 24px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(139, 170, 151, .14); background: rgba(10, 16, 14, .8); }
-.brand { text-decoration: none; color: #e9f2ec; display: flex; align-items: center; gap: 10px; font-family: Manrope, sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -.7px; }
-.brand-light { font-weight: 500; color: #9db1a5; }
-.brand-mark { font-size: 23px; color: var(--green); }
+.brand { text-decoration: none; display: flex; align-items: center; padding: 4px 10px; border-radius: 11px; background: #dcefe6; }
+.brand-logo { display: block; width: auto; height: 42px; max-width: 200px; object-fit: contain; }
 .privacy { font-size: 12px; color: #a4b2aa; display: flex; gap: 8px; align-items: center; }
 .privacy i { width: 7px; height: 7px; background: var(--green); border-radius: 50%; box-shadow: 0 0 12px rgba(85, 196, 147, .6); }
 main { width: min(1200px, calc(100% - 48px)); margin: 0 auto; }
