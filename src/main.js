@@ -2,6 +2,9 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { pipeline, env } from '@huggingface/transformers';
 import './style.css';
+import { inject } from '@vercel/analytics';
+
+inject();
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
