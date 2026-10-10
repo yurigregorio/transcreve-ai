@@ -72,7 +72,8 @@ async function getFFmpeg() {
   if (ffmpeg) return ffmpeg;
   ffmpeg = new FFmpeg();
   ffmpeg.on('progress', ({ progress: p }) => progress('A extrair o áudio…', Math.min(38, 8 + p * 30)));
-  const base = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
+  // Vite deployments must load the ESM build of the FFmpeg core.
+  const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
   await ffmpeg.load({ coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'), wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm') });
   return ffmpeg;
 }
@@ -95,15 +96,22 @@ start.addEventListener('click', async () => {
   progressWrap.hidden = false;
   progressWrap.scrollIntoView({behavior:'smooth', block:'nearest'});
   try {
-    const ff = await getFFmpeg();
     progress('A preparar o áudio…', 8);
-    const ext = (selectedFile.name.split('.').pop() || 'mp4').replace(/[^a-z0-9]/gi,'').slice(0,8) || 'mp4';
-    const source = `source.${ext}`;
-    await ff.writeFile(source, await fetchFile(selectedFile));
-    await ff.exec(['-i', source, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', 'audio.wav']);
-    const data = await ff.readFile('audio.wav');
-    const wav = new Blob([data.buffer], {type:'audio/wav'});
-    const audioUrl = URL.createObjectURL(wav);
+    let audioUrl;
+    if (selectedFile.type.startsWith('audio/')) {
+      // Audio files can be passed directly to Transformers.js; FFmpeg is only
+      // needed to extract the soundtrack from video files.
+      audioUrl = URL.createObjectURL(selectedFile);
+    } else {
+      const ff = await getFFmpeg();
+      const ext = (selectedFile.name.split('.').pop() || 'mp4').replace(/[^a-z0-9]/gi,'').slice(0,8) || 'mp4';
+      const source = `source.${ext}`;
+      await ff.writeFile(source, await fetchFile(selectedFile));
+      await ff.exec(['-i', source, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', 'audio.wav']);
+      const data = await ff.readFile('audio.wav');
+      const wav = new Blob([data.buffer], {type:'audio/wav'});
+      audioUrl = URL.createObjectURL(wav);
+    }
     const rec = await getRecognizer();
     const language = document.querySelector('#language').value;
     const output = await rec(audioUrl, {
