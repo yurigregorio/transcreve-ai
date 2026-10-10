@@ -20,11 +20,12 @@ app.innerHTML = `
       </label>
       <div id="file-meta" class="file-meta" hidden></div>
       <div class="options"><label for="language">Idioma do vídeo</label><select id="language"><option value="portuguese">Português</option><option value="english">Inglês</option><option value="spanish">Espanhol</option><option value="french">Francês</option><option value="auto">Detetar automaticamente</option></select></div>
+      <div class="options"><label for="quality">Qualidade da transcrição</label><select id="quality"><option value="tiny">Mais rápida (recomendada para computadores simples)</option><option value="base">Mais qualidade (download e processamento maiores)</option></select></div>
       <button id="start" class="primary" disabled><span>Transcrever vídeo</span><span aria-hidden="true">→</span></button>
       <div id="progress-wrap" class="progress-wrap" hidden><div class="progress-head"><span id="progress-label">A preparar o vídeo…</span><span class="progress-meta"><span id="progress-percent"></span><span>Decorrido</span><span id="progress-time" class="progress-time" aria-live="off">00:00</span></span></div><div class="track"><div id="progress-bar"></div></div><p id="progress-detail" class="progress-detail">Isso pode levar alguns minutos. Mantenha esta página aberta.</p></div>
       <div class="privacy-note"><span class="lock">▣</span><span>O vídeo é processado localmente. Não é enviado para a internet.<br><small>Na primeira utilização, será baixado um modelo de reconhecimento de voz.</small></span></div>
     </section>
-    <section id="result" class="result" hidden><div class="result-heading"><div><div class="step-label result-label"><span class="step-number done">✓</span><span>Transcrição pronta</span></div><h2 id="result-name">O seu texto</h2></div><div class="result-actions"><button id="copy" class="secondary">Copiar texto</button><button id="download" class="secondary">Baixar .txt</button></div></div><textarea id="transcript" spellcheck="true" aria-label="Transcrição do vídeo"></textarea><p class="edit-hint">Você pode revisar e corrigir o texto antes de copiar ou baixar.</p></section>
+    <section id="result" class="result" hidden><div class="result-heading"><div><div class="step-label result-label"><span class="step-number done">✓</span><span>Transcrição pronta</span></div><h2 id="result-name">O seu texto</h2></div><div class="result-actions"><button id="copy" class="secondary">Copiar texto</button><button id="download" class="secondary">Baixar .txt</button></div></div><textarea id="transcript" spellcheck="true" aria-label="Transcrição do vídeo"></textarea><p class="edit-hint">Você pode revisar e corrigir o texto antes de copiar ou baixar. Trechos entre colchetes indicam repetições detectadas; confira no áudio.</p></section>
     <section id="error" class="error" hidden></section>
     <section class="how"><div class="how-title">É simples assim</div><div class="how-grid"><article><span>01</span><h3>Escolha</h3><p>Selecione um vídeo salvo no computador.</p></article><article><span>02</span><h3>Aguarde</h3><p>O navegador reconhece a fala sem enviar o arquivo.</p></article><article><span>03</span><h3>Use o texto</h3><p>Copie ou baixe a transcrição para estudar.</p></article></div></section>
     <footer>Feito para aprender, no seu ritmo. <span>Transcreve AI</span></footer>
@@ -39,7 +40,7 @@ const resultSection = document.querySelector('#result');
 const errorSection = document.querySelector('#error');
 let selectedFile = null;
 let ffmpeg;
-let recognizer;
+const recognizers = new Map();
 let busy = false;
 let elapsedTimer;
 
@@ -102,8 +103,9 @@ async function getFFmpeg() {
   await ffmpeg.load({ coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'), wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm') });
   return ffmpeg;
 }
-async function getRecognizer(estimate) {
-  if (recognizer) return recognizer;
+async function getRecognizer(estimate, modelSize) {
+  const modelId = `onnx-community/whisper-${modelSize}`;
+  if (recognizers.has(modelId)) return recognizers.get(modelId);
   const progressCallback = p => {
     if (p.status === 'progress' && p.total) {
       progress('A descarregar o modelo de voz…', 42 + (p.progress / 100) * 32, `${estimate} Este download pode ser reutilizado pelo navegador.`);
@@ -114,28 +116,70 @@ async function getRecognizer(estimate) {
   if (canTryWebGPU) {
     progress('A preparar a aceleração gráfica…', 43, `${estimate} Vou tentar usar a GPU do computador; se não funcionar neste navegador, o processamento continua no modo compatível.`);
     try {
-      recognizer = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
+      const recognizer = await pipeline('automatic-speech-recognition', modelId, {
         device: 'webgpu',
         dtype: { encoder_model: 'q4', decoder_model_merged: 'q4' },
         progress_callback: progressCallback
       });
+      recognizers.set(modelId, recognizer);
       progress('Modelo pronto com aceleração gráfica…', 74, estimate);
     } catch (error) {
       console.warn('WebGPU indisponível para este dispositivo; usando o modo compatível.', error);
-      recognizer = null;
+      recognizers.delete(modelId);
       progress('A carregar o modelo compatível…', 45, `${estimate} A aceleração gráfica não funcionou neste aparelho. O modo compatível vai continuar o processamento.`);
     }
   }
-  if (!recognizer) {
+  if (!recognizers.has(modelId)) {
     if (!canTryWebGPU) progress('A carregar o modelo de voz…', 45, `${estimate} O modelo será baixado apenas na primeira utilização.`);
-    recognizer = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny', {
+    const recognizer = await pipeline('automatic-speech-recognition', modelId, {
       dtype: { encoder_model: 'q8', decoder_model_merged: 'q8' },
       progress_callback: progressCallback
     });
+    recognizers.set(modelId, recognizer);
   }
-  return recognizer;
+  return recognizers.get(modelId);
 }
-function cleanText(result) { return Array.isArray(result.chunks) ? result.chunks.map(c => c.text.trim()).join(' ').replace(/\s+([,.!?;:])/g, '$1') : result.text; }
+function removeObviousLoops(text) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const output = [];
+  const marker = '[trecho repetido pelo reconhecimento; confira o áudio]';
+  const normalize = value => value.toLocaleLowerCase('pt-BR').replace(/[^\p{L}\p{N}]/gu, '');
+  for (let i = 0; i < words.length;) {
+    const current = words[i];
+    const normalized = normalize(current);
+    if (/(.{1,3})\1{5,}/u.test(normalized)) {
+      output.push(marker);
+      i++;
+      continue;
+    }
+    let repeatedLength = 0;
+    let repeatedCount = 0;
+    for (let size = 1; size <= 5; size++) {
+      const phrase = words.slice(i, i + size);
+      if (phrase.length !== size) continue;
+      let count = 1;
+      while (count < 20) {
+        const start = i + count * size;
+        const next = words.slice(start, start + size);
+        if (next.length !== size || next.some((word, index) => normalize(word) !== normalize(phrase[index]))) break;
+        count++;
+      }
+      if (count >= 5 && size > repeatedLength) { repeatedLength = size; repeatedCount = count; }
+    }
+    if (repeatedLength) {
+      output.push(words.slice(i, i + repeatedLength).join(' '), marker);
+      i += repeatedLength * repeatedCount;
+      continue;
+    }
+    output.push(current);
+    i++;
+  }
+  return output.join(' ').replace(/\s+([,.!?;:])/g, '$1').replace(/\s{2,}/g, ' ');
+}
+function cleanText(result) {
+  const text = Array.isArray(result.chunks) ? result.chunks.map(c => c.text.trim()).join(' ') : result.text;
+  return removeObviousLoops(text || '');
+}
 
 start.addEventListener('click', async () => {
   if (!selectedFile || busy) return;
@@ -170,14 +214,17 @@ start.addEventListener('click', async () => {
       const wav = new Blob([data.buffer], {type:'audio/wav'});
       audioUrl = URL.createObjectURL(wav);
     }
-    const rec = await getRecognizer(detail);
+    const modelSize = document.querySelector('#quality').value;
+    const modelDetail = modelSize === 'base' ? `${detail} O modelo de maior qualidade pode levar mais tempo e exige um download maior.` : detail;
+    const rec = await getRecognizer(modelDetail, modelSize);
     progress('A reconhecer a fala…', null, `${detail} O indicador animado mostra que o navegador continua trabalhando. Mantenha esta página aberta.`);
     const language = document.querySelector('#language').value;
     const output = await rec(audioUrl, {
       chunk_length_s: 30, stride_length_s: 5,
       ...(language !== 'auto' ? { language } : {}),
       task: 'transcribe',
-      return_timestamps: true
+      return_timestamps: true,
+      repetition_penalty: 1.08
     });
     URL.revokeObjectURL(audioUrl);
     const text = cleanText(output).trim();
