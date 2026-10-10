@@ -21,7 +21,7 @@ app.innerHTML = `
       <div id="file-meta" class="file-meta" hidden></div>
       <div class="options"><label for="language">Idioma do vídeo</label><select id="language"><option value="portuguese">Português</option><option value="english">Inglês</option><option value="spanish">Espanhol</option><option value="french">Francês</option><option value="auto">Detetar automaticamente</option></select></div>
       <button id="start" class="primary" disabled><span>Transcrever vídeo</span><span aria-hidden="true">→</span></button>
-      <div id="progress-wrap" class="progress-wrap" hidden><div class="progress-head"><span id="progress-label">A preparar o vídeo…</span><span id="progress-percent"></span></div><div class="track"><div id="progress-bar"></div></div><p id="progress-detail" class="progress-detail">Isso pode levar alguns minutos. Mantenha esta página aberta.</p></div>
+      <div id="progress-wrap" class="progress-wrap" hidden><div class="progress-head"><span id="progress-label">A preparar o vídeo…</span><span class="progress-meta"><span id="progress-percent"></span><span>Decorrido</span><span id="progress-time" class="progress-time" aria-live="off">00:00</span></span></div><div class="track"><div id="progress-bar"></div></div><p id="progress-detail" class="progress-detail">Isso pode levar alguns minutos. Mantenha esta página aberta.</p></div>
       <div class="privacy-note"><span class="lock">▣</span><span>O vídeo é processado localmente. Não é enviado para a internet.<br><small>Na primeira utilização, será baixado um modelo de reconhecimento de voz.</small></span></div>
     </section>
     <section id="result" class="result" hidden><div class="result-heading"><div><div class="step-label result-label"><span class="step-number done">✓</span><span>Transcrição pronta</span></div><h2 id="result-name">O seu texto</h2></div><div class="result-actions"><button id="copy" class="secondary">Copiar texto</button><button id="download" class="secondary">Baixar .txt</button></div></div><textarea id="transcript" spellcheck="true" aria-label="Transcrição do vídeo"></textarea><p class="edit-hint">Você pode revisar e corrigir o texto antes de copiar ou baixar.</p></section>
@@ -41,6 +41,7 @@ let selectedFile = null;
 let ffmpeg;
 let recognizer;
 let busy = false;
+let elapsedTimer;
 
 function formatSize(bytes) { return bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`; }
 function formatTime(seconds) {
@@ -87,8 +88,10 @@ function progress(label, pct, detail='') {
   document.querySelector('#progress-label').textContent = label;
   document.querySelector('#progress-percent').textContent = pct == null ? '' : `${Math.round(pct)}%`;
   document.querySelector('#progress-bar').style.width = pct == null ? '30%' : `${pct}%`;
+  document.querySelector('.track').classList.toggle('indeterminate', pct == null);
   if (detail) document.querySelector('#progress-detail').textContent = detail;
 }
+function formatElapsed(seconds) { return `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`; }
 function showError(message) { errorSection.innerHTML = `<strong>Não foi possível continuar</strong><span>${message}</span>`; errorSection.hidden = false; }
 async function getFFmpeg() {
   if (ffmpeg) return ffmpeg;
@@ -141,6 +144,12 @@ start.addEventListener('click', async () => {
   errorSection.hidden = true;
   progressWrap.hidden = false;
   progressWrap.scrollIntoView({behavior:'smooth', block:'nearest'});
+  const startedAt = Date.now();
+  document.querySelector('#progress-time').textContent = '00:00';
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    document.querySelector('#progress-time').textContent = formatElapsed(Math.floor((Date.now() - startedAt) / 1000));
+  }, 1000);
   try {
     const duration = await readMediaDuration(selectedFile);
     const detail = estimateDetail(duration);
@@ -162,15 +171,13 @@ start.addEventListener('click', async () => {
       audioUrl = URL.createObjectURL(wav);
     }
     const rec = await getRecognizer(detail);
+    progress('A reconhecer a fala…', null, `${detail} O indicador animado mostra que o navegador continua trabalhando. Mantenha esta página aberta.`);
     const language = document.querySelector('#language').value;
     const output = await rec(audioUrl, {
       chunk_length_s: 30, stride_length_s: 5,
       ...(language !== 'auto' ? { language } : {}),
       task: 'transcribe',
-      return_timestamps: true,
-      callback_function: (chunk) => {
-        if (chunk?.progress != null) progress('A reconhecer a fala…', 76 + chunk.progress * 24);
-      }
+      return_timestamps: true
     });
     URL.revokeObjectURL(audioUrl);
     const text = cleanText(output).trim();
@@ -185,6 +192,7 @@ start.addEventListener('click', async () => {
     showError(error.message?.includes('memory') ? 'Este vídeo é grande para a memória disponível no navegador. Tente um vídeo mais curto ou reduza o tamanho do arquivo.' : (error.message || 'Verifique sua conexão com a internet e tente novamente.'));
     progressWrap.hidden = true;
   } finally {
+    clearInterval(elapsedTimer);
     busy = false;
     start.disabled = !selectedFile;
   }
