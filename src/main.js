@@ -11,7 +11,7 @@ env.useBrowserCache = true;
 
 const app = document.querySelector('#app');
 app.innerHTML = `
-  <header class="topbar"><a class="brand" href="/" aria-label="Transcreve AI início"><span class="brand-mark">✳</span><span>transcreve<span class="brand-light">AI</span></span></a><nav class="site-nav" aria-label="Navegação principal"><a href="/guias/">Guias</a><a href="/perguntas/">Perguntas</a><a href="/sobre/">Sobre</a></nav><span class="privacy"><i></i> Processamento no seu computador</span></header>
+  <header class="topbar"><a class="brand" href="/" aria-label="Transcreve AI início"><span class="brand-mark">✳</span><span>transcreve<span class="brand-light">AI</span></span></a><nav class="site-nav" aria-label="Navegação principal"><a href="/guias/">Guias</a><a href="/perguntas/">Perguntas</a><a href="/sobre/">Sobre</a><a href="/contato/">Contato</a></nav><span class="privacy"><i></i> Processamento no seu computador</span></header>
   <main>
     <section class="intro"><div class="eyebrow"><span class="eyebrow-line"></span> FERRAMENTA GRATUITA · SEM CADASTRO</div><h1>Do vídeo para o texto. <em>Sem complicação.</em></h1><p class="lead">Transcreva os seus vídeos no computador, sem enviar o arquivo.</p></section>
     <div class="columns">
@@ -36,7 +36,7 @@ app.innerHTML = `
     </section>
     </div>
     <section class="how"><div class="how-title">É simples assim</div><div class="how-grid"><article><span>01</span><h3>Escolha</h3><p>Selecione um vídeo salvo no computador.</p></article><article><span>02</span><h3>Aguarde</h3><p>O navegador reconhece a fala sem enviar o arquivo.</p></article><article><span>03</span><h3>Use o texto</h3><p>Copie ou baixe a transcrição para estudar.</p></article></div></section>
-    <footer><span>Feito para aprender, no seu ritmo. · Transcreve AI</span><nav class="footer-nav" aria-label="Links do site"><a href="/guias/">Guias</a><a href="/perguntas/">Perguntas</a><a href="/sobre/">Sobre</a><a href="/privacidade/">Privacidade</a></nav></footer>
+    <footer><span>Feito para aprender, no seu ritmo. · Transcreve AI</span><nav class="footer-nav" aria-label="Links do site"><a href="/guias/">Guias</a><a href="/perguntas/">Perguntas</a><a href="/sobre/">Sobre</a><a href="/contato/">Contato</a><a href="/privacidade/">Privacidade</a></nav></footer>
   </main>`;
 
 const input = document.querySelector('#video-file');
