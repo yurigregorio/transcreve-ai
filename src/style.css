@@ -130,3 +130,16 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, .dropzone:fo
   .how-grid { gap: 10px; }
   .how-grid p { font-size: 9px; }
 }
+
+.site-nav, .footer-nav { display: flex; align-items: center; gap: 18px; }
+.site-nav a, .footer-nav a { color: #a7b8ad; text-decoration: none; font-size: 12px; transition: color .15s ease; }
+.site-nav a:hover, .footer-nav a:hover { color: var(--green-bright); }
+footer { align-items: center; gap: 16px; }
+.footer-nav { gap: 14px; }
+@media (max-width: 760px) {
+  .topbar { height: auto; min-height: 62px; flex-wrap: wrap; gap: 8px 16px; padding: 12px 18px; }
+  .site-nav { order: 3; width: 100%; justify-content: center; padding-top: 8px; border-top: 1px solid rgba(139, 170, 151, .14); }
+  .site-nav a, .footer-nav a { font-size: 11px; }
+  footer { align-items: flex-start; flex-direction: column; }
+  .footer-nav { flex-wrap: wrap; }
+}
